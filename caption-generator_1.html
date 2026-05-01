@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CaptionCraft — Générateur de légendes</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --surface: #161616;
+    --surface2: #1e1e1e;
+    --border: #2a2a2a;
+    --accent: #c8f060;
+    --accent-dim: #9ab844;
+    --text: #f0ede6;
+    --muted: #7a7a72;
+    --radius: 12px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+
+  .grain {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    opacity: 0.4;
+  }
+
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+    position: relative; z-index: 1;
+  }
+
+  header {
+    margin-bottom: 3rem;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  .logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.4rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+
+  .logo span { color: var(--accent); }
+
+  .tagline {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 0.4rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.75rem;
+    margin-bottom: 1rem;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  .card:nth-child(2) { animation-delay: 0.1s; }
+  .card:nth-child(3) { animation-delay: 0.2s; }
+
+  label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.6rem;
+  }
+
+  textarea, input, select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    padding: 0.75rem 1rem;
+    transition: border-color 0.2s;
+    outline: none;
+    -webkit-appearance: none;
+  }
+
+  textarea { resize: none; height: 90px; line-height: 1.6; }
+  select { cursor: pointer; }
+
+  textarea:focus, input:focus, select:focus {
+    border-color: var(--accent-dim);
+  }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  .field { display: flex; flex-direction: column; }
+
+  .tone-pills {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 0.6rem;
+  }
+
+  .pill {
+    padding: 5px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: transparent;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .pill:hover { border-color: var(--accent-dim); color: var(--text); }
+  .pill.active { background: var(--accent); border-color: var(--accent); color: #0d0d0d; font-weight: 500; }
+
+  .generate-btn {
+    width: 100%;
+    padding: 1rem;
+    background: var(--accent);
+    color: #0d0d0d;
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    margin-top: 1rem;
+    transition: all 0.2s;
+    letter-spacing: 0.01em;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+
+  .generate-btn:hover { background: #d4f570; transform: translateY(-1px); }
+  .generate-btn:active { transform: translateY(0); }
+  .generate-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid #0d0d0d;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+
+  .results { margin-top: 1.5rem; display: flex; flex-direction: column; gap: 0.75rem; }
+
+  .result-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.5rem;
+    position: relative;
+    animation: fadeUp 0.4s ease both;
+    transition: border-color 0.2s;
+  }
+
+  .result-item:hover { border-color: var(--accent-dim); }
+
+  .result-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 0.75rem;
+  }
+
+  .result-num {
+    font-size: 0.7rem; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--accent); font-weight: 500;
+  }
+
+  .copy-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.15s;
+  }
+
+  .copy-btn:hover { color: var(--text); border-color: var(--accent-dim); }
+  .copy-btn.copied { color: var(--accent); border-color: var(--accent); }
+
+  .result-text {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text);
+    white-space: pre-wrap;
+  }
+
+  .platform-tag {
+    display: inline-block;
+    margin-top: 0.75rem;
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+  }
+
+  .empty-icon { font-size: 2rem; margin-bottom: 0.5rem; display: block; }
+
+  .error-msg {
+    background: #2a1010;
+    border: 1px solid #5a2020;
+    border-radius: 8px;
+    padding: 1rem;
+    font-size: 0.85rem;
+    color: #f08080;
+    margin-top: 1rem;
+  }
+
+  footer {
+    text-align: center;
+    margin-top: 3rem;
+    font-size: 0.75rem;
+    color: var(--muted);
+    animation: fadeUp 0.6s ease 0.4s both;
+  }
+
+  footer a { color: var(--accent-dim); text-decoration: none; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 480px) {
+    .grid-2 { grid-template-columns: 1fr; }
+    .logo { font-size: 1.8rem; }
+  }
+</style>
+</head>
+<body>
+<div class="grain"></div>
+<div class="container">
+
+  <header>
+    <div class="logo">Caption<span>Craft</span></div>
+    <p class="tagline">Générateur de légendes pour réseaux sociaux</p>
+  </header>
+
+  <div class="card">
+    <label>Décris ton contenu ou produit</label>
+    <textarea id="topic" placeholder="Ex: nouvelle collection de robes d'été, article sur le leadership féminin, promotion -30% sur nos formations..."></textarea>
+
+    <div class="grid-2">
+      <div class="field">
+        <label>Plateforme</label>
+        <select id="platform">
+          <option value="Instagram">Instagram</option>
+          <option value="LinkedIn">LinkedIn</option>
+          <option value="Facebook">Facebook</option>
+          <option value="TikTok">TikTok</option>
+          <option value="Twitter/X">Twitter / X</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Nombre de variantes</label>
+        <select id="count">
+          <option value="3">3 variantes</option>
+          <option value="5">5 variantes</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="margin-top: 1rem;">
+      <label>Ton</label>
+      <div class="tone-pills">
+        <button class="pill active" onclick="setTone(this)">Inspirant</button>
+        <button class="pill" onclick="setTone(this)">Professionnel</button>
+        <button class="pill" onclick="setTone(this)">Humour</button>
+        <button class="pill" onclick="setTone(this)">Urgent / Promo</button>
+        <button class="pill" onclick="setTone(this)">Storytelling</button>
+        <button class="pill" onclick="setTone(this)">Éducatif</button>
+      </div>
+    </div>
+
+    <button class="generate-btn" onclick="generate()" id="gen-btn">
+      <div class="spinner" id="spinner"></div>
+      <span id="btn-text">Générer les légendes</span>
+    </button>
+
+    <div id="error-area"></div>
+  </div>
+
+  <div id="results-area">
+    <div class="empty-state">
+      <span class="empty-icon">✦</span>
+      Tes légendes apparaîtront ici
+    </div>
+  </div>
+
+  <footer>
+    Construit avec HTML · CSS · JS + Gemini API &nbsp;·&nbsp;
+    <a href="https://github.com/" target="_blank">Voir sur GitHub</a>
+  </footer>
+
+</div>
+
+<script>
+let selectedTone = 'Inspirant';
+
+function setTone(el) {
+  document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  selectedTone = el.textContent.trim();
+}
+
+async function generate() {
+  const topic = document.getElementById('topic').value.trim();
+  if (!topic) {
+    document.getElementById('topic').focus();
+    return;
+  }
+
+  const platform = document.getElementById('platform').value;
+  const count = document.getElementById('count').value;
+  const btn = document.getElementById('gen-btn');
+  const spinner = document.getElementById('spinner');
+  const btnText = document.getElementById('btn-text');
+  const errorArea = document.getElementById('error-area');
+
+  btn.disabled = true;
+  spinner.style.display = 'block';
+  btnText.textContent = 'Génération en cours...';
+  errorArea.innerHTML = '';
+  document.getElementById('results-area').innerHTML = '<div class="empty-state"><span class="empty-icon">⟳</span>En train de créer tes légendes...</div>';
+
+  const prompt = `Tu es un expert en marketing digital et copywriting pour les réseaux sociaux.
+
+Génère exactement ${count} légendes pour ${platform} sur le sujet suivant : "${topic}"
+
+Ton demandé : ${selectedTone}
+
+Règles strictes :
+- Chaque légende doit être optimisée pour ${platform} (longueur, style, emojis adaptés)
+- Inclure des hashtags pertinents à la fin de chaque légende
+- Varier l'accroche de chaque variante
+- Ton ${selectedTone.toLowerCase()} tout au long
+- Adapte la langue au français africain moderne si pertinent
+
+Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après :
+{
+  "captions": [
+    { "text": "légende complète avec hashtags", "hook": "mot clé de l'accroche" },
+    ...
+  ]
+}`;
+
+  try {
+    const GEMINI_KEY = 'TA_CLE_API_ICI';
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.9 }
+      })
+    });
+
+    const data = await response.json();
+    const raw = data.candidates[0].content.parts[0].text;
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+
+    renderResults(parsed.captions, platform);
+  } catch (err) {
+    errorArea.innerHTML = `<div class="error-msg">Une erreur est survenue. Vérifie ta connexion et réessaie.</div>`;
+    document.getElementById('results-area').innerHTML = '';
+  } finally {
+    btn.disabled = false;
+    spinner.style.display = 'none';
+    btnText.textContent = 'Générer les légendes';
+  }
+}
+
+function renderResults(captions, platform) {
+  const area = document.getElementById('results-area');
+  area.innerHTML = '<div class="results" id="results-list"></div>';
+  const list = document.getElementById('results-list');
+
+  captions.forEach((cap, i) => {
+    const div = document.createElement('div');
+    div.className = 'result-item';
+    div.style.animationDelay = (i * 0.08) + 's';
+    div.innerHTML = `
+      <div class="result-header">
+        <span class="result-num">Variante ${i + 1} · ${cap.hook || platform}</span>
+        <button class="copy-btn" onclick="copyText(this, ${JSON.stringify(cap.text)})">Copier</button>
+      </div>
+      <div class="result-text">${escapeHtml(cap.text)}</div>
+      <span class="platform-tag">${platform}</span>
+    `;
+    list.appendChild(div);
+  });
+}
+
+function copyText(btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓ Copié !';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copier'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+document.getElementById('topic').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.ctrlKey) generate();
+});
+</script>
+</body>
+</html>
